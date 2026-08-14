@@ -47,4 +47,17 @@ describe('Keepy delete sync', () => {
 	it('does not show trashed notes', () => {
 		expect(activeNotes([note({ id: 'a', trashed: true })])).toEqual([]);
 	});
+
+	it('round-trips a Japanese passphrase in the pairing URL', () => {
+		const config = {
+			token: 'ghp_exampletoken',
+			passphrase: '秘密の合言葉',
+			owner: 'Alicetel-u',
+			repo: 'keepy',
+			path: 'keepy-notes.enc.json'
+		};
+		const url = createPairingUrl(config, 'https://alicetel-u.github.io/keepy/');
+		const raw = new URL(url).hash.replace('#pair=', '');
+		expect(configFromPairingPayload(raw)).toEqual(config);
+	});
 });

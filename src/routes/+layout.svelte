@@ -12,22 +12,23 @@
 
 	const prefs = $derived(getPreferences());
 
-	onMount(async () => {
+	onMount(() => {
 		const blockZoom = (event: Event) => event.preventDefault();
 		document.addEventListener('gesturestart', blockZoom);
 		document.addEventListener('gesturechange', blockZoom);
 		document.addEventListener('gestureend', blockZoom);
 
 		if (pwaInfo) {
-			const { registerSW } = await import('virtual:pwa-register');
-			registerSW({
-				immediate: true,
-				onRegistered(r: ServiceWorkerRegistration | undefined) {
-					console.log('SW Registered:', r);
-				},
-				onRegisterError(error: Error) {
-					console.log('SW registration error', error);
-				}
+			void import('virtual:pwa-register').then(({ registerSW }) => {
+				registerSW({
+					immediate: true,
+					onRegistered(r: ServiceWorkerRegistration | undefined) {
+						console.log('SW Registered:', r);
+					},
+					onRegisterError(error: Error) {
+						console.log('SW registration error', error);
+					}
+				});
 			});
 		}
 

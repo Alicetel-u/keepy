@@ -21,9 +21,11 @@
 		KEEPY_SYNC_OWNER,
 		KEEPY_SYNC_REPO,
 		mergeNotes,
+		normalizeNote,
 		pullFromGitHub,
 		pushToGitHub,
 		saveGitHubSyncConfig,
+		sortNotes,
 		trashNote
 	} from '$lib/sync/github.js';
 
@@ -43,6 +45,7 @@
 	let pairOpen = $state(false);
 	let pairUrl = $state('');
 	let settingsOpen = $state(false);
+	let ready = $state(false);
 	let message = $state('この端末に保存されています');
 
 	function showPairQr() {
@@ -57,22 +60,40 @@
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
 	const labels = $derived([...new Set(activeNotes(notes).flatMap(note => note.tags ?? []))].sort((a, b) => a.localeCompare(b, 'ja')));
+	$effect(() => {
+		if (selectedLabel && !labels.includes(selectedLabel)) selectedLabel = null;
+	});
 	const visibleNotes = $derived.by(() => {
-		const living = activeNotes(notes);
+		const living = sortNotes(activeNotes(notes));
 		const label = selectedLabel;
 		return label ? living.filter((note) => note.tags?.includes(label)) : living;
 	});
 	function newNote() { title = ''; content = ''; noteLabels = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
 	function save() {
-		if (!editing || (!title.trim() && !content.trim())) return close();
+		const current = editing;
+		if (!current) return close();
+		if (!title.trim() && !content.trim()) {
+			if (notes.some((note) => note.id === current.id && !note.trashed)) {
+				notes = trashNote(notes, current.id);
+				persist();
+				message = '削除しました';
+			}
+			return close();
+		}
 		const tags = [...new Set(noteLabels.split(',').map(label => label.trim().replace(/^#/, '')).filter(Boolean))];
-		const updated = { ...editing, title: title.trim(), content: content.trim(), tags, updatedAt: new Date(), version: editing.version + 1 };
+		const updated = { ...current, title: title.trim(), content: content.trim(), tags, trashed: false, trashedAt: null, updatedAt: new Date(), version: current.version + 1 };
 		notes = notes.some(n => n.id === updated.id) ? notes.map(n => n.id === updated.id ? updated : n) : [updated, ...notes];
 		persist(); close(); message = '保存しました';
 	}
 	function close() { editing = null; title = ''; content = ''; noteLabels = ''; }
 	function open(note: Note) { editing = note; title = note.title; content = note.content; noteLabels = (note.tags ?? []).join(', '); }
-	function remove(id: string) { notes = trashNote(notes, id); persist(); message = '削除しました'; }
+	function remove(id: string) {
+		if (!confirm('このメモを削除しますか？')) return;
+		notes = trashNote(notes, id);
+		if (editing?.id === id) close();
+		persist();
+		message = '削除しました';
+	}
 	async function runSync() {
 		const config = getGitHubSyncConfig();
 		if (!config) {
@@ -85,8 +106,8 @@
 		try {
 			const remote = await pullFromGitHub(config);
 			notes = mergeNotes(notes, remote.notes);
-			await pushToGitHub(config, notes, remote.sha);
 			persist();
+			await pushToGitHub(config, notes, remote.sha);
 			connected = true;
 			message = 'GitHubと同期しました';
 		} catch (error) {
@@ -118,15 +139,11 @@
 
 	onMount(() => {
 		try {
-			notes = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[]).map((n) => ({
-				...n,
-				createdAt: new Date(n.createdAt),
-				updatedAt: new Date(n.updatedAt),
-				trashedAt: n.trashedAt ? new Date(n.trashedAt) : null
-			}));
+			notes = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[]).map(normalizeNote);
 		} catch {
 			notes = [];
 		}
+		ready = true;
 
 		const paired = consumePairingFromLocation();
 		if (paired) {
@@ -155,7 +172,7 @@
 		</div>
 	</header>
 	<section class="p-4">
-		{#if labels.length > 0}
+		{#if ready && labels.length > 0}
 			<div class="mb-4 flex gap-2 overflow-x-auto pb-1">
 				<button class="shrink-0 rounded-full px-3 py-1.5 text-sm {selectedLabel === null ? 'bg-[#feefc3] text-[#5f4800]' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'}" onclick={() => selectedLabel = null}>すべて</button>
 				{#each labels as label}
@@ -163,12 +180,12 @@
 				{/each}
 			</div>
 		{/if}
-		{#if visibleNotes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">{selectedLabel ? '#' + selectedLabel + ' のメモはありません' : 'メモはまだありません'}<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
+		{#if ready && visibleNotes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">{selectedLabel ? '#' + selectedLabel + ' のメモはありません' : 'メモはまだありません'}<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each visibleNotes as note (note.id)}
 				<div class="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[var(--card-shadow)]">
-					<div class="flex items-start justify-between gap-2"><button class="text-left" onclick={() => open(note)}><h2 class="font-semibold">{note.title || '無題'}</h2></button><button onclick={() => remove(note.id)} aria-label="削除"><Trash2 class="h-4 w-4 text-[var(--text-muted)]" /></button></div>
-					<button class="mt-2 w-full text-left" onclick={() => open(note)}><p class="whitespace-pre-wrap text-sm text-[var(--text-muted)]">{note.content}</p></button>
+					<div class="flex items-start justify-between gap-2"><button class="min-w-0 text-left" onclick={() => open(note)}><h2 class="break-words font-semibold">{note.title || '無題'}</h2></button><button onclick={() => remove(note.id)} aria-label="削除"><Trash2 class="h-4 w-4 text-[var(--text-muted)]" /></button></div>
+					<button class="mt-2 w-full text-left" onclick={() => open(note)}><p class="whitespace-pre-wrap break-words text-sm text-[var(--text-muted)]">{note.content}</p></button>
 					{#if note.tags?.length}<div class="mt-3 flex flex-wrap gap-1">{#each note.tags as label}<span class="rounded-full bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-muted)]">#{label}</span>{/each}</div>{/if}
 				</div>
 			{/each}

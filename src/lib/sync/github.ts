@@ -29,8 +29,19 @@ export function getGitHubSyncConfig(): GitHubSyncConfig | null {
 }
 
 type EncryptedDocument = { format: 'keepy-encrypted-v1'; salt: string; iv: string; data: string };
-const bytesToBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-const base64ToBytes = (value: string) => Uint8Array.from(atob(value), char => char.charCodeAt(0));
+
+function bytesToBase64(bytes: Uint8Array): string {
+	let binary = '';
+	const chunk = 0x8000;
+	for (let i = 0; i < bytes.length; i += chunk) {
+		binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+	}
+	return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+	return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+}
 
 async function getKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
 	const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
@@ -79,12 +90,12 @@ type PairingPayload = {
 };
 
 function toBase64Url(value: string): string {
-	return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+	return bytesToBase64(new TextEncoder().encode(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 function fromBase64Url(value: string): string {
 	const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
-	return atob(padded);
+	return new TextDecoder().decode(base64ToBytes(padded));
 }
 
 export function configFromPairingPayload(raw: string): GitHubSyncConfig | null {
@@ -136,6 +147,21 @@ export function activeNotes(notes: Note[]): Note[] {
 	return notes.filter((note) => !note.trashed);
 }
 
+export function sortNotes(notes: Note[]): Note[] {
+	return [...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export function normalizeNote(note: Note): Note {
+	return {
+		...note,
+		trashed: Boolean(note.trashed),
+		tags: note.tags ?? [],
+		createdAt: new Date(note.createdAt),
+		updatedAt: new Date(note.updatedAt),
+		trashedAt: note.trashedAt ? new Date(note.trashedAt) : null
+	};
+}
+
 async function request(config: GitHubSyncConfig, init?: RequestInit): Promise<Response> {
 	const url = 'https://api.github.com/repos/' + config.owner + '/' + config.repo + '/contents/' + config.path;
 	return fetch(url, {
@@ -154,17 +180,27 @@ export async function pullFromGitHub(config: GitHubSyncConfig): Promise<{ notes:
 	if (response.status === 404) return { notes: [], sha: null };
 	if (!response.ok) throw new Error('GitHubから読み込めませんでした (' + response.status + ')');
 	const file = await response.json() as { content: string; sha: string };
-	const encrypted = JSON.parse(new TextDecoder().decode(base64ToBytes(file.content.replace(/\n/g, '')))) as EncryptedDocument;
-	const document = await decrypt(encrypted, config.passphrase);
+	let encrypted: EncryptedDocument;
+	try {
+		encrypted = JSON.parse(new TextDecoder().decode(base64ToBytes(file.content.replace(/\n/g, '')))) as EncryptedDocument;
+	} catch {
+		throw new Error('メモデータを読み取れませんでした');
+	}
+	let document: GitHubNotesDocument;
+	try {
+		document = await decrypt(encrypted, config.passphrase);
+	} catch {
+		throw new Error('暗号化パスワードが違うか、データが壊れています');
+	}
 	if (document.format !== 'memento-notes-v1' || !Array.isArray(document.notes)) throw new Error('メモデータの形式が正しくありません');
-	return { notes: document.notes.map(note => ({ ...note, createdAt: new Date(note.createdAt), updatedAt: new Date(note.updatedAt), trashedAt: note.trashedAt ? new Date(note.trashedAt) : null })), sha: file.sha };
+	return { notes: document.notes.map(normalizeNote), sha: file.sha };
 }
 
 export async function pushToGitHub(config: GitHubSyncConfig, notes: Note[], sha: string | null): Promise<void> {
 	const document: GitHubNotesDocument = { format: 'memento-notes-v1', updatedAt: new Date().toISOString(), notes };
 	const encrypted = await encrypt(document, config.passphrase);
 	const content = bytesToBase64(new TextEncoder().encode(JSON.stringify(encrypted)));
-	const response = await request(config, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync Memento notes', content, ...(sha ? { sha } : {}) }) });
+	const response = await request(config, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync Keepy notes', content, ...(sha ? { sha } : {}) }) });
 	if (response.status === 409) throw new Error('ほかの端末で更新されています。もう一度同期してください');
 	if (!response.ok) throw new Error('GitHubへ保存できませんでした (' + response.status + ')');
 }
