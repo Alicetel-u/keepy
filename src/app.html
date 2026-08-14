@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="utf-8" />
     <!-- interactive-widget=resizes-content: on Android the keyboard shrinks the layout viewport via
@@ -7,7 +7,10 @@
          Chromium's visualViewport.height can under-report by the nav-bar height. iOS ignores this
          attribute and relies on the visualViewport tracking in NoteEditor instead. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#f0e6d3" />
+    <meta name="theme-color" content="#f8f9fa" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <script>
       (function() {
         try {
@@ -29,8 +32,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="Crumbs" />
-    <title>Crumbs</title>
+    <meta name="apple-mobile-web-app-title" content="Memento" />
+    <title>Memento</title>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

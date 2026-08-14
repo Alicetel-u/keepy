@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Header from '$lib/components/Layout/Header.svelte';
 	import Sidebar from '$lib/components/Layout/Sidebar.svelte';
+	import MobileNav from '$lib/components/Layout/MobileNav.svelte';
 	import Toast from '$lib/components/Layout/Toast.svelte';
 	import { loadNotes } from '$lib/stores/notes.js';
 	import { startSync, stopSync } from '$lib/sync/client.js';
@@ -36,8 +37,8 @@
 	<Header onMenuToggle={() => (sidebarOpen = !sidebarOpen)} />
 	<Sidebar open={sidebarOpen} onClose={() => (sidebarOpen = false)} />
 
-	<main class="flex-1 pt-4 transition-all {sidebarOpen ? 'lg:ml-64' : ''}">
-		<div class="mx-auto max-w-7xl px-4">
+	<main class="flex-1 pt-5 pb-24 transition-all {sidebarOpen ? 'lg:ml-72' : ''}">
+		<div class="mx-auto max-w-7xl px-4 sm:px-6">
 			{@render children()}
 		</div>
 	</main>
@@ -49,4 +50,5 @@
 	{/if}
 
 	<Toast />
+	<MobileNav />
 </div>

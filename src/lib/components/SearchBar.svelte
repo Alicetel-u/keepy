@@ -80,7 +80,7 @@
 </script>
 
 <div class="relative flex-1 max-w-2xl">
-	<div class="flex items-center rounded-sm border border-[var(--border-subtle)] bg-[var(--bg-base)] px-4 py-2 focus-within:border-[var(--primary)]">
+	<div class="flex items-center rounded-full border border-transparent bg-[#f1f3f4] px-4 py-2.5 focus-within:border-[var(--primary)] focus-within:bg-[var(--bg-surface)]">
 		{#if onClose}
 			<button onclick={close} class="mr-2 text-[var(--text-muted)] hover:text-[var(--text)]" aria-label="Back">
 				<ArrowLeft class="h-5 w-5" />
@@ -91,7 +91,7 @@
 		<input
 			bind:this={inputEl}
 			type="text"
-			placeholder="Search crumbs..."
+			placeholder="メモを検索"
 			bind:value={query}
 			oninput={handleSearch}
 			class="w-full bg-transparent text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"

@@ -17,9 +17,9 @@
 	}
 
 	const navItems = [
-		{ href: '/', label: 'Crumbs', icon: StickyNote, match: (p: string) => p === '/' },
-		{ href: '/archive', label: 'Archive', icon: Archive, match: (p: string) => p === '/archive' },
-		{ href: '/trash', label: 'Trash', icon: Trash2, match: (p: string) => p === '/trash' }
+		{ href: '/', label: 'メモ', icon: StickyNote, match: (p: string) => p === '/' },
+		{ href: '/archive', label: 'アーカイブ', icon: Archive, match: (p: string) => p === '/archive' },
+		{ href: '/trash', label: 'ゴミ箱', icon: Trash2, match: (p: string) => p === '/trash' }
 	];
 </script>
 
@@ -33,7 +33,7 @@
 {/if}
 
 <aside
-	class="fixed left-0 top-16 z-20 h-[calc(100vh-4rem)] w-64 transform border-r border-[var(--border)] bg-[var(--bg-surface)] transition-transform duration-200 {open ? 'translate-x-0' : '-translate-x-full'}"
+	class="fixed left-0 top-16 z-20 h-[calc(100vh-4rem)] w-72 transform border-r border-[var(--border)] bg-[var(--bg-surface)] transition-transform duration-200 {open ? 'translate-x-0' : '-translate-x-full'}"
 >
 	<nav class="p-2">
 		<ul class="space-y-1">
@@ -42,7 +42,7 @@
 					<a
 						href={item.href}
 						onclick={closeMobile}
-						class="flex w-full items-center gap-3 rounded-sm px-6 py-3 text-left text-sm transition-colors {item.match($page.url.pathname) ? 'bg-[var(--primary)]/15 text-[var(--primary)]' : 'text-[var(--text)] hover:bg-[var(--bg-base)]'}"
+						class="flex w-full items-center gap-3 rounded-r-full px-6 py-3 text-left text-sm font-medium transition-colors {item.match($page.url.pathname) ? 'bg-[#feefc3] text-[#5f4800]' : 'text-[var(--text)] hover:bg-[var(--bg-base)]'}"
 					>
 						<item.icon size={20} />
 						{item.label}
@@ -53,7 +53,7 @@
 
 		{#if $allTags.length > 0}
 			<div class="mt-6 border-t border-[var(--border-subtle)] pt-4">
-				<h3 class="px-6 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">Tags</h3>
+				<h3 class="px-6 text-xs font-semibold tracking-wider text-[var(--text-muted)]">ラベル</h3>
 				<ul class="mt-2 space-y-1">
 					{#each $allTags as tag}
 						<li>
@@ -79,7 +79,7 @@
 			data-testid="settings-link"
 		>
 			<Settings size={20} />
-			Settings
+			設定
 		</a>
 	</div>
 </aside>

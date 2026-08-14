@@ -41,7 +41,7 @@
 	{/if}
 	{#if draggable}
 		<div
-			class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+			class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
 			data-testid="note-grid"
 			use:dndzone={{ items: localItems, flipDurationMs, type: dndType, dropTargetStyle: {}, delayTouchStart: 400 }}
 			onconsider={handleConsider}
@@ -54,7 +54,7 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" data-testid="note-grid">
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" data-testid="note-grid">
 			{#each displayItems as note (note.id)}
 				<NoteCard {note} {onEdit} />
 			{/each}

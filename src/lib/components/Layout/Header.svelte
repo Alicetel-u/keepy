@@ -3,6 +3,7 @@
 	import SyncIndicator from '../SyncIndicator.svelte';
 	import Menu from 'lucide-svelte/icons/menu';
 	import Search from 'lucide-svelte/icons/search';
+	import StickyNote from 'lucide-svelte/icons/sticky-note';
 
 	interface Props {
 		onMenuToggle: () => void;
@@ -12,7 +13,7 @@
 	let mobileSearchOpen = $state(false);
 </script>
 
-<header class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4">
+<header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 sm:px-6">
 	{#if mobileSearchOpen}
 		<!-- Mobile expanded search -->
 		<div class="flex flex-1 items-center gap-2 lg:hidden">
@@ -27,9 +28,11 @@
 			<Menu class="h-6 w-6 text-[var(--text)]" />
 		</button>
 
-		<div class="flex items-center gap-2">
-			<img src="/favicon.svg" alt="" class="h-8 w-8" />
-			<h1 class="font-['Press_Start_2P'] text-lg text-[var(--primary)]">Crumbs</h1>
+		<div class="flex items-center gap-2.5">
+			<div class="grid h-9 w-9 place-items-center rounded-xl bg-[#ffe8a3] text-[#8a6200]">
+				<StickyNote class="h-5 w-5" fill="currentColor" />
+			</div>
+			<h1 class="text-lg font-semibold tracking-tight text-[var(--text)]">Memento</h1>
 		</div>
 
 		<!-- Desktop search bar -->

@@ -85,12 +85,12 @@
 				data-testid="new-note-btn"
 			>
 				<Plus class="h-4 w-4" />
-				Add a crumb...
+				メモを入力...
 			</button>
 			<button
 				onclick={() => { newNoteChecklist = true; showNewNote = true; }}
 				class="cursor-pointer rounded-sm p-3 text-[var(--text-muted)] hover:text-[var(--primary)]"
-				use:tooltip={"New checklist"}
+				use:tooltip={"チェックリスト"}
 				data-testid="new-checklist-btn"
 			>
 				<SquareCheck class="h-4 w-4" />
@@ -99,8 +99,8 @@
 	</div>
 	<button
 		onclick={() => (showNewNote = true)}
-		class="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-sm border border-[var(--border)] bg-[var(--primary)] text-white shadow-[var(--card-shadow)] transition-colors hover:bg-[var(--primary-hover)] md:hidden"
-		aria-label="Add a crumb"
+		class="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[#ffe8a3] text-[#5f4800] shadow-[var(--card-shadow-hover)] transition-transform hover:scale-105 md:hidden"
+		aria-label="メモを追加"
 		data-testid="new-note-fab"
 	>
 		<Plus class="h-5 w-5" />
@@ -112,22 +112,22 @@
 </div>
 
 {#if filter === 'archived'}
-	<h2 class="mb-4 text-lg font-medium text-[var(--text-muted)]">Archive</h2>
+	<h2 class="mb-4 text-lg font-medium text-[var(--text-muted)]">アーカイブ</h2>
 {:else if filter === 'trashed'}
-	<h2 class="mb-4 text-lg font-medium text-[var(--text-muted)]">Trash</h2>
+	<h2 class="mb-4 text-lg font-medium text-[var(--text-muted)]">ゴミ箱</h2>
 {:else if tag}
 	<h2 class="mb-4 text-lg font-medium text-[var(--text-muted)]">#{tag}</h2>
 {/if}
 
 {#if $pinnedNotes.length > 0}
 	<div class="mb-6">
-		<NoteGrid notes={$pinnedNotes} label="Pinned" onEdit={openEditor} draggable dndType="pinned-notes" onReorder={handleReorder} />
+		<NoteGrid notes={$pinnedNotes} label="固定" onEdit={openEditor} draggable dndType="pinned-notes" onReorder={handleReorder} />
 	</div>
 {/if}
 
 <NoteGrid
 	notes={$unpinnedNotes}
-	label={$pinnedNotes.length > 0 ? 'Others' : ''}
+	label={$pinnedNotes.length > 0 ? 'その他' : ''}
 	onEdit={openEditor}
 	draggable
 	dndType="unpinned-notes"
