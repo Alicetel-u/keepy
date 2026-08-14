@@ -47,9 +47,9 @@
 	async function syncWithSetup() {
 		if (!getGitHubSyncConfig()) {
 			const token = window.prompt('GitHubのFine-grainedトークンを入力してください');
-			const repo = window.prompt('メモ保存用リポジトリ名を入力してください（例: keepy-data）');
-			if (!token || !repo) return;
-			saveGitHubSyncConfig({ token, owner: 'Alicetel-u', repo, path: 'memento-notes.json' });
+			const passphrase = window.prompt('メモ暗号化パスワードを入力してください');
+			if (!token || !passphrase) return;
+			saveGitHubSyncConfig({ token, owner: 'Alicetel-u', repo: 'keepy', path: 'keepy-notes.enc.json', passphrase });
 		}
 		await sync();
 	}

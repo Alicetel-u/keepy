@@ -31,9 +31,9 @@
 		let config = getGitHubSyncConfig();
 		if (!config) {
 			const token = window.prompt('GitHub Fine-grained token を入力');
-			const repo = window.prompt('メモ保存用のPrivateリポジトリ名（例: keepy-data）');
-			if (!token || !repo) return;
-			config = { token, owner: 'Alicetel-u', repo, path: 'memento-notes.json' };
+			const passphrase = window.prompt('メモを暗号化するパスワードを入力（PCでも同じものを使います）');
+			if (!token || !passphrase) return;
+			config = { token, owner: 'Alicetel-u', repo: 'keepy', path: 'keepy-notes.enc.json', passphrase };
 			saveGitHubSyncConfig(config);
 		}
 		syncing = true; message = 'GitHubと同期中…';

@@ -5,6 +5,7 @@ export interface GitHubSyncConfig {
 	owner: string;
 	repo: string;
 	path: string;
+	passphrase: string;
 }
 
 export interface GitHubNotesDocument {
@@ -14,17 +15,40 @@ export interface GitHubNotesDocument {
 }
 
 const CONFIG_KEY = 'memento-github-sync';
-const DEFAULT_PATH = 'memento-notes.json';
+const DEFAULT_PATH = 'keepy-notes.enc.json';
 
 export function getGitHubSyncConfig(): GitHubSyncConfig | null {
 	if (typeof localStorage === 'undefined') return null;
 	try {
 		const value = JSON.parse(localStorage.getItem(CONFIG_KEY) ?? '') as Partial<GitHubSyncConfig>;
-		if (!value.token || !value.owner || !value.repo) return null;
-		return { token: value.token, owner: value.owner, repo: value.repo, path: value.path || DEFAULT_PATH };
+		if (!value.token || !value.owner || !value.repo || !value.passphrase) return null;
+		return { token: value.token, owner: value.owner, repo: value.repo, path: value.path || DEFAULT_PATH, passphrase: value.passphrase };
 	} catch {
 		return null;
 	}
+}
+
+type EncryptedDocument = { format: 'keepy-encrypted-v1'; salt: string; iv: string; data: string };
+const bytesToBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+const base64ToBytes = (value: string) => Uint8Array.from(atob(value), char => char.charCodeAt(0));
+
+async function getKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+	const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+	return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+async function encrypt(document: GitHubNotesDocument, passphrase: string): Promise<EncryptedDocument> {
+	const salt = crypto.getRandomValues(new Uint8Array(16));
+	const iv = crypto.getRandomValues(new Uint8Array(12));
+	const key = await getKey(passphrase, salt);
+	const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(document)));
+	return { format: 'keepy-encrypted-v1', salt: bytesToBase64(salt), iv: bytesToBase64(iv), data: bytesToBase64(new Uint8Array(encrypted)) };
+}
+
+async function decrypt(payload: EncryptedDocument, passphrase: string): Promise<GitHubNotesDocument> {
+	const key = await getKey(passphrase, base64ToBytes(payload.salt));
+	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBytes(payload.iv) }, key, base64ToBytes(payload.data));
+	return JSON.parse(new TextDecoder().decode(decrypted)) as GitHubNotesDocument;
 }
 
 export function saveGitHubSyncConfig(config: GitHubSyncConfig): void {
@@ -53,14 +77,16 @@ export async function pullFromGitHub(config: GitHubSyncConfig): Promise<{ notes:
 	if (response.status === 404) return { notes: [], sha: null };
 	if (!response.ok) throw new Error('GitHubから読み込めませんでした (' + response.status + ')');
 	const file = await response.json() as { content: string; sha: string };
-	const document = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, ''))))) as GitHubNotesDocument;
+	const encrypted = JSON.parse(new TextDecoder().decode(base64ToBytes(file.content.replace(/\n/g, '')))) as EncryptedDocument;
+	const document = await decrypt(encrypted, config.passphrase);
 	if (document.format !== 'memento-notes-v1' || !Array.isArray(document.notes)) throw new Error('メモデータの形式が正しくありません');
 	return { notes: document.notes.map(note => ({ ...note, createdAt: new Date(note.createdAt), updatedAt: new Date(note.updatedAt), trashedAt: note.trashedAt ? new Date(note.trashedAt) : null })), sha: file.sha };
 }
 
 export async function pushToGitHub(config: GitHubSyncConfig, notes: Note[], sha: string | null): Promise<void> {
 	const document: GitHubNotesDocument = { format: 'memento-notes-v1', updatedAt: new Date().toISOString(), notes };
-	const content = btoa(unescape(encodeURIComponent(JSON.stringify(document))));
+	const encrypted = await encrypt(document, config.passphrase);
+	const content = bytesToBase64(new TextEncoder().encode(JSON.stringify(encrypted)));
 	const response = await request(config, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync Memento notes', content, ...(sha ? { sha } : {}) }) });
 	if (response.status === 409) throw new Error('ほかの端末で更新されています。もう一度同期してください');
 	if (!response.ok) throw new Error('GitHubへ保存できませんでした (' + response.status + ')');
