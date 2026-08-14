@@ -5,6 +5,7 @@
 	import Trash2 from 'lucide-svelte/icons/trash-2';
 	import X from 'lucide-svelte/icons/x';
 	import Check from 'lucide-svelte/icons/check';
+	import Tag from 'lucide-svelte/icons/tag';
 	import type { Note } from '$lib/types/index.js';
 	import SyncSetup from '$lib/components/SyncSetup.svelte';
 	import PairQr from '$lib/components/PairQr.svelte';
@@ -27,7 +28,9 @@
 	let notes = $state<Note[]>([]);
 	let title = $state('');
 	let content = $state('');
+	let noteLabels = $state('');
 	let editing = $state<Note | null>(null);
+	let selectedLabel = $state<string | null>(null);
 	let syncing = $state(false);
 	let setupOpen = $state(false);
 	let setupToken = $state('');
@@ -50,15 +53,18 @@
 	}
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
-	function newNote() { title = ''; content = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
+	const labels = $derived([...new Set(notes.flatMap(note => note.tags ?? []))].sort((a, b) => a.localeCompare(b, 'ja')));
+	const visibleNotes = $derived(selectedLabel ? notes.filter(note => note.tags?.includes(selectedLabel)) : notes);
+	function newNote() { title = ''; content = ''; noteLabels = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
 	function save() {
 		if (!editing || (!title.trim() && !content.trim())) return close();
-		const updated = { ...editing, title: title.trim(), content: content.trim(), updatedAt: new Date(), version: editing.version + 1 };
+		const tags = [...new Set(noteLabels.split(',').map(label => label.trim().replace(/^#/, '')).filter(Boolean))];
+		const updated = { ...editing, title: title.trim(), content: content.trim(), tags, updatedAt: new Date(), version: editing.version + 1 };
 		notes = notes.some(n => n.id === updated.id) ? notes.map(n => n.id === updated.id ? updated : n) : [updated, ...notes];
 		persist(); close(); message = '保存しました';
 	}
-	function close() { editing = null; title = ''; content = ''; }
-	function open(note: Note) { editing = note; title = note.title; content = note.content; }
+	function close() { editing = null; title = ''; content = ''; noteLabels = ''; }
+	function open(note: Note) { editing = note; title = note.title; content = note.content; noteLabels = (note.tags ?? []).join(', '); }
 	function remove(id: string) { notes = notes.filter(n => n.id !== id); persist(); message = '削除しました'; }
 	async function runSync() {
 		const config = getGitHubSyncConfig();
@@ -159,12 +165,21 @@
 		</div>
 	</header>
 	<section class="p-4">
-		{#if notes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">メモはまだありません<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
+		{#if labels.length > 0}
+			<div class="mb-4 flex gap-2 overflow-x-auto pb-1">
+				<button class="shrink-0 rounded-full px-3 py-1.5 text-sm {selectedLabel === null ? 'bg-[#feefc3] text-[#5f4800]' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'}" onclick={() => selectedLabel = null}>すべて</button>
+				{#each labels as label}
+					<button class="shrink-0 rounded-full px-3 py-1.5 text-sm {selectedLabel === label ? 'bg-[#feefc3] text-[#5f4800]' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'}" onclick={() => selectedLabel = label}>#{label}</button>
+				{/each}
+			</div>
+		{/if}
+		{#if visibleNotes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">{selectedLabel ? '#' + selectedLabel + ' のメモはありません' : 'メモはまだありません'}<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
 		<div class="grid gap-3 sm:grid-cols-2">
-			{#each notes as note (note.id)}
+			{#each visibleNotes as note (note.id)}
 				<div class="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[var(--card-shadow)]">
 					<div class="flex items-start justify-between gap-2"><button class="text-left" onclick={() => open(note)}><h2 class="font-semibold">{note.title || '無題'}</h2></button><button onclick={() => remove(note.id)} aria-label="削除"><Trash2 class="h-4 w-4 text-[var(--text-muted)]" /></button></div>
 					<button class="mt-2 w-full text-left" onclick={() => open(note)}><p class="whitespace-pre-wrap text-sm text-[var(--text-muted)]">{note.content}</p></button>
+					{#if note.tags?.length}<div class="mt-3 flex flex-wrap gap-1">{#each note.tags as label}<span class="rounded-full bg-[var(--bg-base)] px-2 py-1 text-xs text-[var(--text-muted)]">#{label}</span>{/each}</div>{/if}
 				</div>
 			{/each}
 		</div>
@@ -192,6 +207,7 @@
 			<div class="flex justify-end"><button type="button" onclick={close} aria-label="閉じる"><X /></button></div>
 			<input class="mt-2 bg-transparent text-xl font-semibold outline-none" bind:value={title} placeholder="タイトル" />
 			<textarea class="mt-4 flex-1 resize-none bg-transparent text-base outline-none" bind:value={content} placeholder="メモを書く…"></textarea>
+			<label class="mt-3 flex items-center gap-2 rounded-xl bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-muted)]"><Tag class="h-4 w-4" /><input class="min-w-0 flex-1 bg-transparent outline-none" bind:value={noteLabels} placeholder="ラベル（例: 仕事, 買い物）" /></label>
 			<button class="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-[#feefc3] py-3 font-semibold text-[#5f4800]" type="submit"><Check class="h-5 w-5" />保存</button>
 		</form>
 	</div>
