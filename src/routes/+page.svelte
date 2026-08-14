@@ -9,7 +9,8 @@
 	import type { Note } from '$lib/types/index.js';
 	import SyncSetup from '$lib/components/SyncSetup.svelte';
 	import PairQr from '$lib/components/PairQr.svelte';
-	import QrCode from 'lucide-svelte/icons/qr-code';
+	import SettingsSheet from '$lib/components/SettingsSheet.svelte';
+	import Settings from 'lucide-svelte/icons/settings';
 	import {
 		clearGitHubSyncConfig,
 		consumePairingFromLocation,
@@ -39,7 +40,7 @@
 	let connected = $state(false);
 	let pairOpen = $state(false);
 	let pairUrl = $state('');
-	let showPairAfterSync = $state(false);
+	let settingsOpen = $state(false);
 	let message = $state('この端末に保存されています');
 
 	function showPairQr() {
@@ -54,7 +55,10 @@
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
 	const labels = $derived([...new Set(notes.flatMap(note => note.tags ?? []))].sort((a, b) => a.localeCompare(b, 'ja')));
-	const visibleNotes = $derived(selectedLabel ? notes.filter(note => note.tags?.includes(selectedLabel)) : notes);
+	const visibleNotes = $derived.by(() => {
+		const label = selectedLabel;
+		return label ? notes.filter((note) => note.tags?.includes(label)) : notes;
+	});
 	function newNote() { title = ''; content = ''; noteLabels = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
 	function save() {
 		if (!editing || (!title.trim() && !content.trim())) return close();
@@ -82,11 +86,6 @@
 			persist();
 			connected = true;
 			message = 'GitHubと同期しました';
-			if (showPairAfterSync) {
-				showPairAfterSync = false;
-				pairUrl = createPairingUrl(config);
-				pairOpen = true;
-			}
 		} catch (error) {
 			const text = error instanceof Error ? error.message : '同期に失敗しました';
 			if (text.includes('(401)') || text.includes('(403)')) {
@@ -120,7 +119,6 @@
 		setupOpen = false;
 		setupToken = '';
 		setupError = '';
-		showPairAfterSync = true;
 		void runSync();
 	}
 
@@ -156,11 +154,9 @@
 	<header class="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4">
 		<div><h1 class="text-xl font-bold">Keepy</h1><p class="text-xs text-[var(--text-muted)]">{message}</p></div>
 		<div class="flex items-center gap-2">
-			{#if connected}
-				<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={showPairQr} aria-label="ほかの端末を連携">
-					<QrCode class="h-5 w-5" />
-				</button>
-			{/if}
+			<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={() => { settingsOpen = true; }} aria-label="設定">
+				<Settings class="h-5 w-5" />
+			</button>
 			<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={runSync} disabled={syncing} aria-label={connected ? 'GitHubと同期' : '別の端末と同期'}><Cloud class="h-5 w-5" /></button>
 		</div>
 	</header>
@@ -186,6 +182,21 @@
 	</section>
 	<button class="fixed bottom-7 right-6 grid h-14 w-14 place-items-center rounded-2xl bg-[#ffe8a3] text-[#5f4800] shadow-lg" onclick={newNote} aria-label="メモを追加"><Plus class="h-6 w-6" /></button>
 </main>
+
+{#if settingsOpen}
+	<SettingsSheet
+		{connected}
+		onclose={() => { settingsOpen = false; }}
+		onpair={() => { settingsOpen = false; showPairQr(); }}
+		onconnect={() => { settingsOpen = false; setupOpen = true; setupError = ''; }}
+		ondisconnect={() => {
+			clearGitHubSyncConfig();
+			connected = false;
+			settingsOpen = false;
+			message = 'この端末に保存されています';
+		}}
+	/>
+{/if}
 
 {#if pairOpen}
 	<PairQr url={pairUrl} onclose={() => { pairOpen = false; }} />
