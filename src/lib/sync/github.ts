@@ -68,6 +68,52 @@ export const GITHUB_TOKEN_URL =
 
 export const KEEPY_SYNC_OWNER = 'Alicetel-u';
 export const KEEPY_SYNC_REPO = 'keepy';
+const PAIR_HASH_PREFIX = '#pair=';
+
+type PairingPayload = {
+	t: string;
+	p: string;
+	o: string;
+	r: string;
+	f: string;
+};
+
+function toBase64Url(value: string): string {
+	return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function fromBase64Url(value: string): string {
+	const padded = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+	return atob(padded);
+}
+
+export function configFromPairingPayload(raw: string): GitHubSyncConfig | null {
+	try {
+		const parsed = JSON.parse(fromBase64Url(raw)) as Partial<PairingPayload>;
+		if (!parsed.t || !parsed.p || !parsed.o || !parsed.r) return null;
+		return { token: parsed.t, passphrase: parsed.p, owner: parsed.o, repo: parsed.r, path: parsed.f || DEFAULT_PATH };
+	} catch {
+		return null;
+	}
+}
+
+export function createPairingUrl(config: GitHubSyncConfig, baseUrl = typeof location === 'undefined' ? '' : location.href): string {
+	const payload = toBase64Url(JSON.stringify({ t: config.token, p: config.passphrase, o: config.owner, r: config.repo, f: config.path } satisfies PairingPayload));
+	const url = new URL(baseUrl);
+	url.hash = 'pair=' + payload;
+	return url.toString();
+}
+
+export function consumePairingFromLocation(current = typeof location === 'undefined' ? '' : location.href): GitHubSyncConfig | null {
+	const url = new URL(current);
+	if (!url.hash.startsWith(PAIR_HASH_PREFIX)) return null;
+	const config = configFromPairingPayload(url.hash.slice(PAIR_HASH_PREFIX.length));
+	if (typeof history !== 'undefined') {
+		url.hash = '';
+		history.replaceState(null, '', url.pathname + url.search);
+	}
+	return config;
+}
 
 export function mergeNotes(local: Note[], remote: Note[]): Note[] {
 	const merged = new Map(local.map((note) => [note.id, note]));

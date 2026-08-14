@@ -7,8 +7,12 @@
 	import Check from 'lucide-svelte/icons/check';
 	import type { Note } from '$lib/types/index.js';
 	import SyncSetup from '$lib/components/SyncSetup.svelte';
+	import PairQr from '$lib/components/PairQr.svelte';
+	import QrCode from 'lucide-svelte/icons/qr-code';
 	import {
 		clearGitHubSyncConfig,
+		consumePairingFromLocation,
+		createPairingUrl,
 		getGitHubSyncConfig,
 		isGitHubSyncConfigured,
 		KEEPY_SYNC_OWNER,
@@ -30,7 +34,20 @@
 	let setupPassphrase = $state('');
 	let setupError = $state('');
 	let connected = $state(false);
+	let pairOpen = $state(false);
+	let pairUrl = $state('');
+	let showPairAfterSync = $state(false);
 	let message = $state('この端末に保存されています');
+
+	function showPairQr() {
+		const config = getGitHubSyncConfig();
+		if (!config) {
+			setupOpen = true;
+			return;
+		}
+		pairUrl = createPairingUrl(config);
+		pairOpen = true;
+	}
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
 	function newNote() { title = ''; content = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
@@ -59,6 +76,11 @@
 			persist();
 			connected = true;
 			message = 'GitHubと同期しました';
+			if (showPairAfterSync) {
+				showPairAfterSync = false;
+				pairUrl = createPairingUrl(config);
+				pairOpen = true;
+			}
 		} catch (error) {
 			const text = error instanceof Error ? error.message : '同期に失敗しました';
 			if (text.includes('(401)') || text.includes('(403)')) {
@@ -92,12 +114,11 @@
 		setupOpen = false;
 		setupToken = '';
 		setupError = '';
+		showPairAfterSync = true;
 		void runSync();
 	}
 
 	onMount(() => {
-		connected = isGitHubSyncConfigured();
-		if (connected) message = 'GitHub同期の準備ができています';
 		try {
 			notes = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[]).map((n) => ({
 				...n,
@@ -108,6 +129,18 @@
 		} catch {
 			notes = [];
 		}
+
+		const paired = consumePairingFromLocation();
+		if (paired) {
+			saveGitHubSyncConfig(paired);
+			connected = true;
+			message = 'この端末を連携しました';
+			void runSync();
+			return;
+		}
+
+		connected = isGitHubSyncConfigured();
+		if (connected) message = 'GitHub同期の準備ができています';
 	});
 </script>
 
@@ -116,7 +149,14 @@
 <main class="mx-auto min-h-screen max-w-xl bg-[var(--bg-base)] pb-28 text-[var(--text)]">
 	<header class="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4">
 		<div><h1 class="text-xl font-bold">Keepy</h1><p class="text-xs text-[var(--text-muted)]">{message}</p></div>
-		<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={runSync} disabled={syncing} aria-label={connected ? 'GitHubと同期' : '別の端末と同期'}><Cloud class="h-5 w-5" /></button>
+		<div class="flex items-center gap-2">
+			{#if connected}
+				<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={showPairQr} aria-label="ほかの端末を連携">
+					<QrCode class="h-5 w-5" />
+				</button>
+			{/if}
+			<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={runSync} disabled={syncing} aria-label={connected ? 'GitHubと同期' : '別の端末と同期'}><Cloud class="h-5 w-5" /></button>
+		</div>
 	</header>
 	<section class="p-4">
 		{#if notes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">メモはまだありません<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
@@ -131,6 +171,10 @@
 	</section>
 	<button class="fixed bottom-7 right-6 grid h-14 w-14 place-items-center rounded-2xl bg-[#ffe8a3] text-[#5f4800] shadow-lg" onclick={newNote} aria-label="メモを追加"><Plus class="h-6 w-6" /></button>
 </main>
+
+{#if pairOpen}
+	<PairQr url={pairUrl} onclose={() => { pairOpen = false; }} />
+{/if}
 
 {#if setupOpen}
 	<SyncSetup

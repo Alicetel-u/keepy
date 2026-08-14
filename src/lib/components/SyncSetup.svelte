@@ -36,7 +36,7 @@
 			<div>
 				<h2 class="text-lg font-semibold">別の端末と同期</h2>
 				<p class="mt-1 text-sm text-[var(--text-muted)]">
-					メモ自体は今この端末に保存されています。同期は任意です。
+					トークンの発行は1回だけです。もう一方の端末は、設定済みの端末のQRを開いてください。
 				</p>
 			</div>
 			<button type="button" onclick={oncancel} aria-label="閉じる">
