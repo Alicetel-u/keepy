@@ -55,6 +55,20 @@ export function saveGitHubSyncConfig(config: GitHubSyncConfig): void {
 	localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 }
 
+export function clearGitHubSyncConfig(): void {
+	localStorage.removeItem(CONFIG_KEY);
+}
+
+export function isGitHubSyncConfigured(): boolean {
+	return getGitHubSyncConfig() !== null;
+}
+
+export const GITHUB_TOKEN_URL =
+	'https://github.com/settings/tokens/new?description=Keepy&scopes=public_repo';
+
+export const KEEPY_SYNC_OWNER = 'Alicetel-u';
+export const KEEPY_SYNC_REPO = 'keepy';
+
 export function mergeNotes(local: Note[], remote: Note[]): Note[] {
 	const merged = new Map(local.map((note) => [note.id, note]));
 	for (const note of remote) {

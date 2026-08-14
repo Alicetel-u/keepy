@@ -6,7 +6,18 @@
 	import X from 'lucide-svelte/icons/x';
 	import Check from 'lucide-svelte/icons/check';
 	import type { Note } from '$lib/types/index.js';
-	import { getGitHubSyncConfig, mergeNotes, pullFromGitHub, pushToGitHub, saveGitHubSyncConfig } from '$lib/sync/github.js';
+	import SyncSetup from '$lib/components/SyncSetup.svelte';
+	import {
+		clearGitHubSyncConfig,
+		getGitHubSyncConfig,
+		isGitHubSyncConfigured,
+		KEEPY_SYNC_OWNER,
+		KEEPY_SYNC_REPO,
+		mergeNotes,
+		pullFromGitHub,
+		pushToGitHub,
+		saveGitHubSyncConfig
+	} from '$lib/sync/github.js';
 
 	const KEY = 'memento-local-notes';
 	let notes = $state<Note[]>([]);
@@ -14,7 +25,12 @@
 	let content = $state('');
 	let editing = $state<Note | null>(null);
 	let syncing = $state(false);
-	let message = $state('端末内に保存されています');
+	let setupOpen = $state(false);
+	let setupToken = $state('');
+	let setupPassphrase = $state('');
+	let setupError = $state('');
+	let connected = $state(false);
+	let message = $state('この端末に保存されています');
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
 	function newNote() { title = ''; content = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
@@ -27,26 +43,71 @@
 	function close() { editing = null; title = ''; content = ''; }
 	function open(note: Note) { editing = note; title = note.title; content = note.content; }
 	function remove(id: string) { notes = notes.filter(n => n.id !== id); persist(); message = '削除しました'; }
-	async function sync() {
-		let config = getGitHubSyncConfig();
+	async function runSync() {
+		const config = getGitHubSyncConfig();
 		if (!config) {
-			const token = window.prompt('GitHub Fine-grained token を入力');
-			const passphrase = window.prompt('メモを暗号化するパスワードを入力（PCでも同じものを使います）');
-			if (!token || !passphrase) return;
-			config = { token, owner: 'Alicetel-u', repo: 'keepy', path: 'keepy-notes.enc.json', passphrase };
-			saveGitHubSyncConfig(config);
+			setupOpen = true;
+			setupError = '';
+			return;
 		}
-		syncing = true; message = 'GitHubと同期中…';
+		syncing = true;
+		message = 'GitHubと同期中…';
 		try {
 			const remote = await pullFromGitHub(config);
 			notes = mergeNotes(notes, remote.notes);
 			await pushToGitHub(config, notes, remote.sha);
-			persist(); message = 'GitHubと同期しました';
-		} catch (error) { message = error instanceof Error ? error.message : '同期に失敗しました'; }
-		finally { syncing = false; }
+			persist();
+			connected = true;
+			message = 'GitHubと同期しました';
+		} catch (error) {
+			const text = error instanceof Error ? error.message : '同期に失敗しました';
+			if (text.includes('(401)') || text.includes('(403)')) {
+				clearGitHubSyncConfig();
+				connected = false;
+				setupOpen = true;
+				setupError = 'GitHubの許可が無効です。もう一度「GitHubで許可する」からやり直してください。';
+				message = 'この端末に保存されています';
+			} else {
+				message = text;
+			}
+		} finally {
+			syncing = false;
+		}
 	}
+
+	function confirmSetup() {
+		const token = setupToken.trim();
+		const passphrase = setupPassphrase.trim();
+		if (!token || !passphrase) {
+			setupError = '許可コードとパスワードの両方を入力してください';
+			return;
+		}
+		saveGitHubSyncConfig({
+			token,
+			owner: KEEPY_SYNC_OWNER,
+			repo: KEEPY_SYNC_REPO,
+			path: 'keepy-notes.enc.json',
+			passphrase
+		});
+		setupOpen = false;
+		setupToken = '';
+		setupError = '';
+		void runSync();
+	}
+
 	onMount(() => {
-		try { notes = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[]).map(n => ({ ...n, createdAt: new Date(n.createdAt), updatedAt: new Date(n.updatedAt), trashedAt: n.trashedAt ? new Date(n.trashedAt) : null })); } catch { notes = []; }
+		connected = isGitHubSyncConfigured();
+		if (connected) message = 'GitHub同期の準備ができています';
+		try {
+			notes = (JSON.parse(localStorage.getItem(KEY) ?? '[]') as Note[]).map((n) => ({
+				...n,
+				createdAt: new Date(n.createdAt),
+				updatedAt: new Date(n.updatedAt),
+				trashedAt: n.trashedAt ? new Date(n.trashedAt) : null
+			}));
+		} catch {
+			notes = [];
+		}
 	});
 </script>
 
@@ -55,7 +116,7 @@
 <main class="mx-auto min-h-screen max-w-xl bg-[var(--bg-base)] pb-28 text-[var(--text)]">
 	<header class="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-surface)] px-5 py-4">
 		<div><h1 class="text-xl font-bold">Keepy</h1><p class="text-xs text-[var(--text-muted)]">{message}</p></div>
-		<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={sync} disabled={syncing} aria-label="GitHubと同期"><Cloud class="h-5 w-5" /></button>
+		<button class="rounded-full bg-[#feefc3] p-3 text-[#5f4800]" onclick={runSync} disabled={syncing} aria-label={connected ? 'GitHubと同期' : '別の端末と同期'}><Cloud class="h-5 w-5" /></button>
 	</header>
 	<section class="p-4">
 		{#if notes.length === 0}<div class="py-24 text-center text-[var(--text-muted)]">メモはまだありません<br><span class="text-sm">右下の＋から追加できます</span></div>{/if}
@@ -70,6 +131,16 @@
 	</section>
 	<button class="fixed bottom-7 right-6 grid h-14 w-14 place-items-center rounded-2xl bg-[#ffe8a3] text-[#5f4800] shadow-lg" onclick={newNote} aria-label="メモを追加"><Plus class="h-6 w-6" /></button>
 </main>
+
+{#if setupOpen}
+	<SyncSetup
+		bind:token={setupToken}
+		bind:passphrase={setupPassphrase}
+		error={setupError}
+		oncancel={() => { setupOpen = false; setupError = ''; }}
+		onconfirm={confirmSetup}
+	/>
+{/if}
 
 {#if editing}
 	<div class="fixed inset-0 z-20 bg-black/35 p-3 sm:p-8">
