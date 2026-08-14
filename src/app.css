@@ -26,6 +26,8 @@
 	   light styling is byte-identical; dark mode keeps the cream that --border
 	   used to supply, because a mid-grey wash is invisible on a dark surface. */
 	--hover-wash: var(--border);
+	--accent-soft: #fff0b8;
+	--accent-ink: #6d5200;
 }
 
 [data-theme="dark"] {
@@ -49,6 +51,8 @@
 	/* Dimmed so a long done-list of gold checkboxes doesn't shout. */
 	--accent-check: #c8a44a;
 	--hover-wash: #ece3d3;
+	--accent-soft: #554519;
+	--accent-ink: #ffe49a;
 }
 
 html, body {
@@ -75,6 +79,31 @@ body::before {
 }
 
 button, a { -webkit-tap-highlight-color: transparent; }
+
+/* Keepy: soft, friendly paper-like surfaces that remain legible in dark mode. */
+input, textarea {
+	color: var(--text);
+	caret-color: var(--primary);
+}
+
+input::placeholder, textarea::placeholder {
+	color: var(--text-muted);
+	opacity: 0.9;
+}
+
+textarea {
+	line-height: 1.7;
+}
+
+[data-theme="dark"] textarea,
+[data-theme="dark"] input {
+	color: #f4f1ec;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+	color: #c9c4bd;
+}
 
 @media (max-width: 1023px) {
 	html {
