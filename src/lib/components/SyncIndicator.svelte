@@ -5,6 +5,7 @@
 	import CloudSync from 'lucide-svelte/icons/cloud-sync';
 	import CloudOff from 'lucide-svelte/icons/cloud-off';
 	import CloudAlert from 'lucide-svelte/icons/cloud-alert';
+	import { getGitHubSyncConfig, saveGitHubSyncConfig } from '$lib/sync/github.js';
 
 	let status: SyncStatus = $state(getSyncStatus());
 	let displayStatus: SyncStatus = $state(getSyncStatus());
@@ -42,12 +43,22 @@
 		unsubscribe?.();
 		if (minDisplayTimeout) clearTimeout(minDisplayTimeout);
 	});
+
+	async function syncWithSetup() {
+		if (!getGitHubSyncConfig()) {
+			const token = window.prompt('GitHubのFine-grainedトークンを入力してください');
+			const repo = window.prompt('メモ保存用リポジトリ名を入力してください（例: keepy-data）');
+			if (!token || !repo) return;
+			saveGitHubSyncConfig({ token, owner: 'Alicetel-u', repo, path: 'memento-notes.json' });
+		}
+		await sync();
+	}
 </script>
 
 <button
 	class="flex cursor-pointer items-center rounded-sm p-1 transition-colors hover:bg-[var(--border-subtle)]/50"
 	title="Sync status: {status} — click to sync"
-	onclick={() => sync()}
+	onclick={syncWithSetup}
 	data-testid="sync-indicator"
 >
 	{#if displayStatus === 'synced'}
