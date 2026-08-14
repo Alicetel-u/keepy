@@ -13,6 +13,11 @@
 	const prefs = $derived(getPreferences());
 
 	onMount(async () => {
+		const blockZoom = (event: Event) => event.preventDefault();
+		document.addEventListener('gesturestart', blockZoom);
+		document.addEventListener('gesturechange', blockZoom);
+		document.addEventListener('gestureend', blockZoom);
+
 		if (pwaInfo) {
 			const { registerSW } = await import('virtual:pwa-register');
 			registerSW({
@@ -25,6 +30,12 @@
 				}
 			});
 		}
+
+		return () => {
+			document.removeEventListener('gesturestart', blockZoom);
+			document.removeEventListener('gesturechange', blockZoom);
+			document.removeEventListener('gestureend', blockZoom);
+		};
 	});
 
 	$effect(() => {

@@ -87,16 +87,7 @@
 			connected = true;
 			message = 'GitHubと同期しました';
 		} catch (error) {
-			const text = error instanceof Error ? error.message : '同期に失敗しました';
-			if (text.includes('(401)') || text.includes('(403)')) {
-				clearGitHubSyncConfig();
-				connected = false;
-				setupOpen = true;
-				setupError = 'GitHubの許可が無効です。もう一度「GitHubで許可する」からやり直してください。';
-				message = 'この端末に保存されています';
-			} else {
-				message = text;
-			}
+			message = error instanceof Error ? error.message : '同期に失敗しました';
 		} finally {
 			syncing = false;
 		}

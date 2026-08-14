@@ -128,7 +128,12 @@ async function request(config: GitHubSyncConfig, init?: RequestInit): Promise<Re
 	const url = 'https://api.github.com/repos/' + config.owner + '/' + config.repo + '/contents/' + config.path;
 	return fetch(url, {
 		...init,
-		headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + config.token, ...init?.headers }
+		headers: {
+			Accept: 'application/vnd.github+json',
+			Authorization: 'Bearer ' + config.token,
+			'X-GitHub-Api-Version': '2022-11-28',
+			...init?.headers
+		}
 	});
 }
 
