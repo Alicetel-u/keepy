@@ -12,6 +12,7 @@
 	import SettingsSheet from '$lib/components/SettingsSheet.svelte';
 	import Settings from 'lucide-svelte/icons/settings';
 	import {
+		activeNotes,
 		clearGitHubSyncConfig,
 		consumePairingFromLocation,
 		createPairingUrl,
@@ -22,7 +23,8 @@
 		mergeNotes,
 		pullFromGitHub,
 		pushToGitHub,
-		saveGitHubSyncConfig
+		saveGitHubSyncConfig,
+		trashNote
 	} from '$lib/sync/github.js';
 
 	const KEY = 'memento-local-notes';
@@ -54,10 +56,11 @@
 	}
 
 	function persist() { localStorage.setItem(KEY, JSON.stringify(notes)); }
-	const labels = $derived([...new Set(notes.flatMap(note => note.tags ?? []))].sort((a, b) => a.localeCompare(b, 'ja')));
+	const labels = $derived([...new Set(activeNotes(notes).flatMap(note => note.tags ?? []))].sort((a, b) => a.localeCompare(b, 'ja')));
 	const visibleNotes = $derived.by(() => {
+		const living = activeNotes(notes);
 		const label = selectedLabel;
-		return label ? notes.filter((note) => note.tags?.includes(label)) : notes;
+		return label ? living.filter((note) => note.tags?.includes(label)) : living;
 	});
 	function newNote() { title = ''; content = ''; noteLabels = ''; editing = { id: crypto.randomUUID(), title: '', content: '', color: 'default', pinned: false, archived: false, trashed: false, trashedAt: null, checklistMode: false, sortOrder: 0, createdAt: new Date(), updatedAt: new Date(), version: 1 }; }
 	function save() {
@@ -69,7 +72,7 @@
 	}
 	function close() { editing = null; title = ''; content = ''; noteLabels = ''; }
 	function open(note: Note) { editing = note; title = note.title; content = note.content; noteLabels = (note.tags ?? []).join(', '); }
-	function remove(id: string) { notes = notes.filter(n => n.id !== id); persist(); message = '削除しました'; }
+	function remove(id: string) { notes = trashNote(notes, id); persist(); message = '削除しました'; }
 	async function runSync() {
 		const config = getGitHubSyncConfig();
 		if (!config) {

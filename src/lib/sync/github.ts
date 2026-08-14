@@ -124,6 +124,18 @@ export function mergeNotes(local: Note[], remote: Note[]): Note[] {
 	return [...merged.values()];
 }
 
+export function trashNote(notes: Note[], id: string): Note[] {
+	return notes.map((note) =>
+		note.id === id
+			? { ...note, trashed: true, trashedAt: new Date(), updatedAt: new Date(), version: note.version + 1 }
+			: note
+	);
+}
+
+export function activeNotes(notes: Note[]): Note[] {
+	return notes.filter((note) => !note.trashed);
+}
+
 async function request(config: GitHubSyncConfig, init?: RequestInit): Promise<Response> {
 	const url = 'https://api.github.com/repos/' + config.owner + '/' + config.repo + '/contents/' + config.path;
 	return fetch(url, {
