@@ -34,20 +34,20 @@ const base64ToBytes = (value: string) => Uint8Array.from(atob(value), char => ch
 
 async function getKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
 	const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
-	return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+	return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt as BufferSource, iterations: 250000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
 async function encrypt(document: GitHubNotesDocument, passphrase: string): Promise<EncryptedDocument> {
 	const salt = crypto.getRandomValues(new Uint8Array(16));
 	const iv = crypto.getRandomValues(new Uint8Array(12));
 	const key = await getKey(passphrase, salt);
-	const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(document)));
+	const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, new TextEncoder().encode(JSON.stringify(document)));
 	return { format: 'keepy-encrypted-v1', salt: bytesToBase64(salt), iv: bytesToBase64(iv), data: bytesToBase64(new Uint8Array(encrypted)) };
 }
 
 async function decrypt(payload: EncryptedDocument, passphrase: string): Promise<GitHubNotesDocument> {
 	const key = await getKey(passphrase, base64ToBytes(payload.salt));
-	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBytes(payload.iv) }, key, base64ToBytes(payload.data));
+	const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: base64ToBytes(payload.iv) as BufferSource }, key, base64ToBytes(payload.data) as BufferSource);
 	return JSON.parse(new TextDecoder().decode(decrypted)) as GitHubNotesDocument;
 }
 

@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 import istanbul from 'vite-plugin-istanbul';
 import { defineConfig } from 'vite';
 
+const base = process.env.BASE_PATH ?? '';
+const scope = `${base}/`;
+
 export default defineConfig({
 	build: {
 		chunkSizeWarningLimit: 850
@@ -23,14 +26,15 @@ export default defineConfig({
 				]
 			: []),
 		SvelteKitPWA({
-			scope: '/',
-			buildBase: '/',
+			scope,
+			buildBase: scope,
 			registerType: 'autoUpdate',
 			manifest: {
 				name: 'Keepy',
 				short_name: 'Keepy',
 				description: 'GitHub同期対応のプライベートメモアプリ',
-				start_url: '/',
+				start_url: scope,
+				scope,
 				display: 'standalone',
 				background_color: '#f8f9fa',
 				theme_color: '#e7a900',

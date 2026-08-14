@@ -7,12 +7,17 @@
  * Usage: npx tsx scripts/generate-openapi.ts
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { resolve, relative, dirname, join } from 'path';
 
 const ROOT = process.cwd();
 const ROUTES_DIR = resolve(ROOT, 'src/routes/api');
 const OUTPUT = resolve(ROOT, 'static/api/openapi.json');
+
+if (!existsSync(ROUTES_DIR)) {
+	console.log('No API routes found; skipping OpenAPI generation');
+	process.exit(0);
+}
 
 const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf-8'));
 

@@ -1,9 +1,7 @@
 name: Deploy Website
 
+# Disabled: Keepy is deployed by pages.yml. Publishing website/ would overwrite it.
 on:
-  push:
-    branches: [main]
-    paths: ['website/**']
   workflow_dispatch:
 
 permissions:
@@ -17,6 +15,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: false
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     environment:

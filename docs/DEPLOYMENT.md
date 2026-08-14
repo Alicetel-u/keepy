@@ -1,6 +1,27 @@
 # Deployment Guide
 
-## Docker (Recommended)
+## GitHub Pages (Keepy)
+
+Keepy is a static app. Production deploys from `main` via `.github/workflows/pages.yml` to:
+
+https://alicetel-u.github.io/keepy/
+
+The workflow builds with `BASE_PATH=/keepy` so assets resolve under the project-page path.
+
+```bash
+BASE_PATH=/keepy pnpm build
+```
+
+Output is `build/`. Local preview without a base path:
+
+```bash
+pnpm build
+pnpm preview
+```
+
+Notes stay on the device (`localStorage`) and optionally sync as an encrypted file in this repository.
+
+## Docker (legacy Crumbs server)
 
 ### Quick Start
 
